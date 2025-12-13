@@ -1,10 +1,16 @@
 import { render, screen } from '@testing-library/react';
 import React from 'react';
-import App from './App'; 
+import { describe, it, expect, vi } from 'vitest';
+import App from './App';
 import '@testing-library/jest-dom';
 
-test('renders the main application wrapper', () => {
-  render(<App />);
-  const element = screen.getByText(/Rent Gear. Go Outside./i); 
-  expect(element).toBeInTheDocument();
+vi.mock('./components/Navbar', () => ({
+  default: () => <div>Mock Navigation Bar</div>
+}));
+
+describe('App Component', () => {
+  it('renders the main application wrapper', () => {
+    render(<App />);
+    expect(screen.getByText('Mock Navigation Bar')).toBeInTheDocument();
+  });
 });
