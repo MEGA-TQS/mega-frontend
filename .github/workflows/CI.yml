@@ -38,7 +38,13 @@ jobs:
 
       - name: Install Dependencies
         run: npm ci
+      
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
 
+      - name: Run BDD Tests (Cucumber)
+        run: npx cucumber-js
+      
       - name: Run Tests & Generate Coverage
         run: npm test -- --coverage
 
