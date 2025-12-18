@@ -5,6 +5,7 @@ export default {
     format: ['progress-bar'],
     worldParameters: {
       headless: true
-    }
+    },
+    timeout: 30000
   }
 };
