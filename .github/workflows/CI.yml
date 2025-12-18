@@ -42,8 +42,14 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
 
+      - name: Build App for BDD Tests
+        run: npm run build
+
       - name: Run BDD Tests (Cucumber)
-        run: npx cucumber-js
+        run: |
+          npm run preview &
+          sleep 5
+          BASE_URL=http://localhost:4173 npm run test:cucumber
       
       - name: Run Tests & Generate Coverage
         run: npm test -- --coverage
