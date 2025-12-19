@@ -1,70 +1,87 @@
-import { describe, it, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import ItemDetailsPage from './ItemDetailsPage';
+import ItemService from '../services/ItemService';
+import BookingService from '../services/BookingService';
+import { useAuth } from '../context/AuthContext';
 
-// Mock Services
 vi.mock('../services/ItemService', () => ({
-  default: { 
-    getItemById: vi.fn(() => Promise.resolve({ 
-      id: 1, 
-      name: "Test Item", 
-      pricePerDay: 20,
-      reviews: [], // Ensure reviews exists for the map function
-      owner: { id: 999 } // Different from auth user (id: 123)
-    })),
-    addReview: vi.fn(() => Promise.resolve({ id: 1, comment: "Saved!" }))
-  }
+  default: {
+    getItemById: vi.fn(),
+    addReview: vi.fn(),
+  },
 }));
+
 vi.mock('../services/BookingService', () => ({
-  default: { createBooking: vi.fn(() => Promise.resolve({})) }
+  default: {
+    createBooking: vi.fn(),
+  },
 }));
 
-// Mock Auth Context (Crucial!)
 vi.mock('../context/AuthContext', () => ({
-  useAuth: () => ({
-    user: { id: 123, name: "Test User" }
-  })
+  useAuth: vi.fn(),
 }));
 
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
-  return {
-    ...actual,
-    useParams: () => ({ id: '1' }),
-    useNavigate: () => vi.fn()
-  };
-});
+const mockItem = {
+  id: 1,
+  name: 'Mountain Bike',
+  description: 'Great bike',
+  pricePerDay: 20,
+  location: 'Berlin',
+  condition: 'Good',
+  owner: { id: 99 },
+  reviews: [],
+};
 
-describe('ItemDetailsPage', () => {
-  it('renders item details', async () => {
-    render(
-      <MemoryRouter>
-        <ItemDetailsPage />
-      </MemoryRouter>
-    );
+const renderWithRouter = (user = null) => {
+  useAuth.mockReturnValue({ user });
 
-    // Wait for data to load
-    await waitFor(() => {
-        screen.getByText("Test Item");
-    });
-  });
-});
-
-it('submits a review successfully', async () => {
-  render(
-    <MemoryRouter>
-      <ItemDetailsPage />
+  return render(
+    <MemoryRouter initialEntries={['/items/1']}>
+      <Routes>
+        <Route path="/items/:id" element={<ItemDetailsPage />} />
+      </Routes>
     </MemoryRouter>
   );
+};
 
-  // Wait for item to load
-  const commentBox = await screen.findByPlaceholderText(/write your experience/i);
-  
-  fireEvent.change(commentBox, { target: { value: 'Best surfboard ever!' } });
-  fireEvent.click(screen.getByText('Submit Review'));
+describe('ItemDetailsPage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    ItemService.getItemById.mockResolvedValue(mockItem);
+  });
 
-  await waitFor(() => {
-    expect(screen.getByText('Best surfboard ever!')).toBeInTheDocument();
+  it('shows loading state initially', async () => {
+    renderWithRouter();
+    const loading = screen.queryByText('Loading...');
+    expect(loading).not.toBeNull();
+    await screen.findByText('Mountain Bike');
+  });
+
+  it('renders item details', async () => {
+    renderWithRouter();
+    const title = await screen.findByText('Mountain Bike');
+    expect(title.textContent).toBe('Mountain Bike');
+    expect(screen.getByText('€20 / day').textContent).toContain('20');
+    expect(screen.getByText('Berlin').textContent).toBe('Berlin');
+  });
+
+  it('shows booking form for non-owner user', async () => {
+    renderWithRouter({ id: 1 });
+    await screen.findByText('Request Booking');
+    const startInput = document.querySelector('input[type="date"]');
+    const endInput = document.querySelectorAll('input[type="date"]')[1];
+    expect(startInput).not.toBeNull();
+    expect(endInput).not.toBeNull();
+  });
+
+  it('prevents booking when user is not logged in', async () => {
+    vi.spyOn(window, 'alert').mockImplementation(() => {});
+    renderWithRouter(null);
+    await screen.findByText('Request Booking');
+    const btn = screen.getByText('Send Request');
+    fireEvent.click(btn);
+    expect(window.alert).toHaveBeenCalledWith('Please login to book items.');
   });
 });

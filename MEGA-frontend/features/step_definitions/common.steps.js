@@ -72,9 +72,17 @@ When('I type {string} in the {string} field', async function (value, fieldName) 
     throw new Error(`Could not find field: ${fieldName}`);
 });
 
+// Updated select logic to handle the new Category dropdown
 When('I select {string} from {string}', async function (optionText, selectLabel) {
+    // Select by name attribute (e.g., name="category")
     const select = this.page.locator(`select[name="${selectLabel}"]`).first();
     await select.selectOption({ label: optionText });
+});
+
+// Helper for price range inputs
+When('I set the price range from {string} to {string}', async function (min, max) {
+    await this.page.locator('input[name="minPrice"]').fill(min);
+    await this.page.locator('input[name="maxPrice"]').fill(max);
 });
 
 // Assertion steps

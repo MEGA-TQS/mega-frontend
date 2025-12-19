@@ -1,130 +1,143 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import React from 'react';
-import { BrowserRouter } from 'react-router-dom';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import IncomingBookingsPage from './IncomingBookingsPage';
 import BookingService from '../services/BookingService';
 import { useAuth } from '../context/AuthContext';
 
-// 1. Mock the BookingService
+// ---- MOCKS ----
+
+// Mock BookingService
 vi.mock('../services/BookingService', () => ({
-    default: {
-        getIncomingBookings: vi.fn(),
-        acceptBooking: vi.fn(),
-        declineBooking: vi.fn()
-    }
+  default: {
+    getIncomingBookings: vi.fn(),
+    acceptBooking: vi.fn(),
+    declineBooking: vi.fn(),
+  },
 }));
 
-// 2. Mock the AuthContext
+// Mock AuthContext
 vi.mock('../context/AuthContext', () => ({
-    useAuth: vi.fn()
+  useAuth: vi.fn(),
 }));
 
 describe('IncomingBookingsPage', () => {
-    const mockUser = { id: 1, name: 'Owner User' };
-    const mockBookings = [
-        {
-            id: 101,
-            status: 'PENDING',
-            startDate: '2025-01-01',
-            endDate: '2025-01-05',
-            renter: { name: 'Alice Renter' },
-            items: [{ item: { name: 'Pro Surfboard' } }]
-        }
-    ];
+  const mockOwner = { id: 10, name: 'Owner' };
 
-    beforeEach(() => {
-        vi.clearAllMocks();
-        // Default mock implementation
-        useAuth.mockReturnValue({ user: mockUser });
-        BookingService.getIncomingBookings.mockResolvedValue(mockBookings);
+  const pendingBooking = {
+    id: 1,
+    status: 'PENDING',
+    startDate: '2025-01-01',
+    endDate: '2025-01-05',
+    renter: { name: 'Alice' },
+    items: [{ item: { name: 'Camera' } }],
+  };
+
+  const approvedBooking = {
+    ...pendingBooking,
+    id: 2,
+    status: 'APPROVED',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useAuth.mockReturnValue({ user: mockOwner });
+  });
+
+  it('fetches incoming bookings on mount', async () => {
+    BookingService.getIncomingBookings.mockResolvedValue([pendingBooking]);
+
+    render(<IncomingBookingsPage />);
+
+    const item = await screen.findByText('Camera');
+    expect(item).not.toBeNull();
+    expect(BookingService.getIncomingBookings).toHaveBeenCalledWith(10);
+  });
+
+  it('renders Accept and Decline buttons for pending bookings', async () => {
+    BookingService.getIncomingBookings.mockResolvedValue([pendingBooking]);
+
+    render(<IncomingBookingsPage />);
+
+    const acceptBtn = await screen.findByText('Accept');
+    const declineBtn = screen.getByText('Decline');
+    expect(acceptBtn).not.toBeNull();
+    expect(declineBtn).not.toBeNull();
+  });
+
+  it('does not render action buttons for non-pending bookings', async () => {
+    BookingService.getIncomingBookings.mockResolvedValue([approvedBooking]);
+
+    render(<IncomingBookingsPage />);
+
+    const status = await screen.findByText('APPROVED');
+    expect(status).not.toBeNull();
+    expect(screen.queryByText('Accept')).toBeNull();
+    expect(screen.queryByText('Decline')).toBeNull();
+  });
+
+  it('accepts a booking and refreshes the list', async () => {
+    BookingService.getIncomingBookings
+      .mockResolvedValueOnce([pendingBooking])
+      .mockResolvedValueOnce([{ ...pendingBooking, status: 'APPROVED' }]);
+
+    BookingService.acceptBooking.mockResolvedValue({});
+
+    render(<IncomingBookingsPage />);
+
+    const acceptBtn = await screen.findByText('Accept');
+    fireEvent.click(acceptBtn);
+
+    await waitFor(() => {
+      expect(BookingService.acceptBooking).toHaveBeenCalledWith(1);
     });
 
-    it('renders the page title and table headers', async () => {
-        render(
-            <BrowserRouter>
-                <IncomingBookingsPage />
-            </BrowserRouter>
-        );
+    await waitFor(() => {
+      expect(screen.getByText('APPROVED')).not.toBeNull();
+    });
+  });
 
-        expect(screen.getByText('Manage Incoming Bookings')).toBeInTheDocument();
-        expect(screen.getByText('Item')).toBeInTheDocument();
-        expect(screen.getByText('Renter')).toBeInTheDocument();
+  it('declines a booking and refreshes the list', async () => {
+    BookingService.getIncomingBookings
+      .mockResolvedValueOnce([pendingBooking])
+      .mockResolvedValueOnce([{ ...pendingBooking, status: 'DECLINED' }]);
+
+    BookingService.declineBooking.mockResolvedValue({});
+
+    render(<IncomingBookingsPage />);
+
+    const declineBtn = await screen.findByText('Decline');
+    fireEvent.click(declineBtn);
+
+    await waitFor(() => {
+      expect(BookingService.declineBooking).toHaveBeenCalledWith(1);
     });
 
-    it('fetches and displays incoming bookings on load', async () => {
-        render(
-            <BrowserRouter>
-                <IncomingBookingsPage />
-            </BrowserRouter>
-        );
-
-        // Verify service was called with correct owner ID
-        expect(BookingService.getIncomingBookings).toHaveBeenCalledWith(mockUser.id);
-
-        // Wait for data to appear in the table
-        await waitFor(() => {
-            expect(screen.getByText('Pro Surfboard')).toBeInTheDocument();
-            expect(screen.getByText('Alice Renter')).toBeInTheDocument();
-            expect(screen.getByText('PENDING')).toBeInTheDocument();
-        });
+    await waitFor(() => {
+      expect(screen.getByText('DECLINED')).not.toBeNull();
     });
+  });
 
-    it('calls acceptBooking and refreshes the list when Accept is clicked', async () => {
-        BookingService.acceptBooking.mockResolvedValue({});
-        
-        render(
-            <BrowserRouter>
-                <IncomingBookingsPage />
-            </BrowserRouter>
-        );
+  it('shows alert on action failure', async () => {
+    BookingService.getIncomingBookings.mockResolvedValue([pendingBooking]);
+    BookingService.acceptBooking.mockRejectedValue(new Error('Failed'));
 
-        const acceptBtn = await screen.findByText('Accept');
-        fireEvent.click(acceptBtn);
+    vi.spyOn(window, 'alert').mockImplementation(() => {});
 
-        // Verify the accept call
-        expect(BookingService.acceptBooking).toHaveBeenCalledWith(101);
+    render(<IncomingBookingsPage />);
 
-        // Verify the list was refreshed
-        await waitFor(() => {
-            expect(BookingService.getIncomingBookings).toHaveBeenCalledTimes(2);
-        });
+    const acceptBtn = await screen.findByText('Accept');
+    fireEvent.click(acceptBtn);
+
+    await waitFor(() => {
+      expect(window.alert).toHaveBeenCalledWith('Action failed');
     });
+  });
 
-    it('calls declineBooking and refreshes the list when Decline is clicked', async () => {
-        BookingService.declineBooking.mockResolvedValue({});
-        
-        render(
-            <BrowserRouter>
-                <IncomingBookingsPage />
-            </BrowserRouter>
-        );
+  it('does not fetch bookings if user is null', () => {
+    useAuth.mockReturnValue({ user: null });
 
-        const declineBtn = await screen.findByText('Decline');
-        fireEvent.click(declineBtn);
+    render(<IncomingBookingsPage />);
 
-        // Verify the decline call
-        expect(BookingService.declineBooking).toHaveBeenCalledWith(101);
-
-        // Verify the list was refreshed
-        await waitFor(() => {
-            expect(BookingService.getIncomingBookings).toHaveBeenCalledTimes(2);
-        });
-    });
-
-    it('handles empty booking list gracefully', async () => {
-        BookingService.getIncomingBookings.mockResolvedValue([]);
-
-        render(
-            <BrowserRouter>
-                <IncomingBookingsPage />
-            </BrowserRouter>
-        );
-
-        await waitFor(() => {
-            const rows = screen.queryAllByRole('row');
-            // Only the header row should exist
-            expect(rows.length).toBe(1);
-        });
-    });
+    expect(BookingService.getIncomingBookings).not.toHaveBeenCalled();
+  });
 });

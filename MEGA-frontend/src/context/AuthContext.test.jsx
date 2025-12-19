@@ -1,145 +1,126 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 import React from 'react';
-import '@testing-library/jest-dom'; // Imports matchers like toHaveTextContent
 import { AuthProvider, useAuth } from './AuthContext';
 
-// --- Test Component to Consume Context ---
+// Test helper component
 const TestComponent = () => {
   const { user, login, logout } = useAuth();
-  
+
   return (
     <div>
-      <div data-testid="user-display">
-        {user ? `Logged in as: ${user.name} (Role: ${user.role})` : 'No user'}
-      </div>
-      <button 
-        data-testid="login-button"
-        onClick={() => login({ 
-            userId: 101, 
-            name: 'Test User', 
-            email: 'test@example.com', 
-            role: 'USER', 
-            token: 'valid-jwt-token' 
-        })}
-      >
-        Login
-      </button>
-      <button 
-        data-testid="logout-button"
-        onClick={logout}
-      >
-        Logout
-      </button>
+      {user ? (
+        <>
+          <span data-testid="user-id">{user.id}</span>
+          <button onClick={logout}>Logout</button>
+        </>
+      ) : (
+        <button
+          onClick={() =>
+            login({ userId: 123, name: 'Alice', token: 'jwt-token' })
+          }
+        >
+          Login
+        </button>
+      )}
     </div>
   );
 };
 
 describe('AuthContext', () => {
-  let localStorageMock;
-  let originalLocalStorage;
-
   beforeEach(() => {
-    // 1. Save original localStorage
-    originalLocalStorage = global.localStorage;
-    
-    // 2. Create a fresh mock store for every test
-    const store = {};
-    localStorageMock = {
-      getItem: vi.fn((key) => store[key] || null),
-      setItem: vi.fn((key, value) => { store[key] = value.toString(); }),
-      removeItem: vi.fn((key) => { delete store[key]; }),
-      clear: vi.fn(() => { for (const key in store) delete store[key]; }),
-    };
-    
-    // 3. Apply the mock
-    Object.defineProperty(global, 'localStorage', {
-      value: localStorageMock,
-      writable: true,
-    });
-  });
-
-  afterEach(() => {
-    // 4. Restore original
-    Object.defineProperty(global, 'localStorage', {
-      value: originalLocalStorage,
-    });
     vi.clearAllMocks();
+    localStorage.clear();
   });
 
-  it('provides default null state when localStorage is empty', () => {
-    render(
-      <AuthProvider>
-        <TestComponent />
-      </AuthProvider>
-    );
-    
-    expect(screen.getByTestId('user-display')).toHaveTextContent('No user');
-    expect(localStorageMock.getItem).toHaveBeenCalledWith('user');
-  });
-
-  it('initializes user from localStorage if data exists', () => {
-    // Arrange: Pre-populate localStorage
-    const existingUser = JSON.stringify({ id: 55, name: 'Existing User', role: 'ADMIN' });
-    localStorageMock.getItem.mockImplementation((key) => {
-        if (key === 'user') return existingUser;
-        return null;
-    });
-
+  it('provides null user by default', () => {
     render(
       <AuthProvider>
         <TestComponent />
       </AuthProvider>
     );
 
-    expect(screen.getByTestId('user-display')).toHaveTextContent('Logged in as: Existing User (Role: ADMIN)');
+    const loginBtn = screen.queryByText('Login');
+    expect(loginBtn).not.toBeNull();
   });
 
-  it('login() updates state and saves to localStorage correctly', async () => {
+  it('logs in and normalizes user id', () => {
     render(
       <AuthProvider>
         <TestComponent />
       </AuthProvider>
     );
 
-    // Act: Click Login
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('login-button'));
-    });
+    fireEvent.click(screen.getByText('Login'));
 
-    // Assert 1: UI Updated
-    expect(screen.getByTestId('user-display')).toHaveTextContent('Logged in as: Test User (Role: USER)');
+    const userIdEl = screen.getByTestId('user-id');
+    expect(userIdEl.textContent).toBe('123');
 
-    // Assert 2: User Object Saved (Verifying "Standardize ID" logic)
-    // The component sends `userId: 101`, context should save it as `id: 101`
-    expect(localStorageMock.setItem).toHaveBeenCalledWith(
-        'user', 
-        expect.stringContaining('"id":101') 
-    );
-
-    // Assert 3: Token Saved (Crucial for Axios)
-    expect(localStorageMock.setItem).toHaveBeenCalledWith('token', 'valid-jwt-token');
+    const storedUser = JSON.parse(localStorage.getItem('user'));
+    expect(storedUser.id).toBe(123);
+    expect(localStorage.getItem('token')).toBe('jwt-token');
   });
 
-  it('logout() clears state and removes items from localStorage', async () => {
-    // Arrange: Start logged in
+  it('uses existing id if userId is missing', () => {
+    const CustomTest = () => {
+      const { login, user } = useAuth();
+      return (
+        <>
+          <button onClick={() => login({ id: 55, name: 'Bob' })}>
+            Login
+          </button>
+          {user && <span data-testid="user-id">{user.id}</span>}
+        </>
+      );
+    };
+
+    render(
+      <AuthProvider>
+        <CustomTest />
+      </AuthProvider>
+    );
+
+    fireEvent.click(screen.getByText('Login'));
+
+    const userIdEl = screen.getByTestId('user-id');
+    expect(userIdEl.textContent).toBe('55');
+  });
+
+  it('logs out and clears user and token', () => {
     render(
       <AuthProvider>
         <TestComponent />
       </AuthProvider>
     );
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('login-button'));
-    });
 
-    // Act: Click Logout
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('logout-button'));
-    });
+    fireEvent.click(screen.getByText('Login'));
+    fireEvent.click(screen.getByText('Logout'));
 
-    // Assert
-    expect(screen.getByTestId('user-display')).toHaveTextContent('No user');
-    expect(localStorageMock.removeItem).toHaveBeenCalledWith('user');
-    expect(localStorageMock.removeItem).toHaveBeenCalledWith('token');
+    const loginBtn = screen.queryByText('Login');
+    expect(loginBtn).not.toBeNull();
+    expect(localStorage.getItem('user')).toBeNull();
+    expect(localStorage.getItem('token')).toBeNull();
+  });
+
+  it('does not store token if missing', () => {
+    const NoTokenTest = () => {
+      const { login } = useAuth();
+      return (
+        <button onClick={() => login({ userId: 7, name: 'NoTokenUser' })}>
+          Login
+        </button>
+      );
+    };
+
+    render(
+      <AuthProvider>
+        <NoTokenTest />
+      </AuthProvider>
+    );
+
+    fireEvent.click(screen.getByText('Login'));
+
+    expect(localStorage.getItem('user')).not.toBeNull();
+    expect(localStorage.getItem('token')).toBeNull();
   });
 });

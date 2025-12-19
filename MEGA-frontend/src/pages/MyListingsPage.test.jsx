@@ -1,24 +1,37 @@
-import { describe, it, vi } from 'vitest'
-import { render } from '@testing-library/react'
-import { BrowserRouter } from 'react-router-dom'
-import MyListingsPage from './MyListingsPage'
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
+import MyListingsPage from './MyListingsPage';
+import { useAuth } from '../context/AuthContext';
+import ItemService from '../services/ItemService';
 
-// Mock services and context
+vi.mock('../context/AuthContext', () => ({
+  useAuth: vi.fn(),
+}));
+
 vi.mock('../services/ItemService', () => ({
   default: {
-    getMyListings: vi.fn(() => Promise.resolve([
-      { id: 1, name: 'Bike', pricePerDay: 10, active: true }
-    ])),
-    deleteItem: vi.fn(() => Promise.resolve({})),
-    updatePrice: vi.fn(() => Promise.resolve({ id: 1, pricePerDay: 15 }))
-  }
+    getMyListings: vi.fn(),
+    deleteItem: vi.fn(),
+    updatePrice: vi.fn(),
+  },
 }));
 
 describe('MyListingsPage Actions', () => {
+  const mockUser = { id: 1 };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useAuth.mockReturnValue({ user: mockUser });
+
+    ItemService.getMyListings.mockResolvedValue([
+      { id: 1, name: 'Bike', pricePerDay: 10, active: true },
+    ]);
+    ItemService.updatePrice.mockResolvedValue({ id: 1, pricePerDay: 15 });
+  });
+
   it('updates price locally when Edit Price is clicked', async () => {
-    // Mock window.prompt
     vi.spyOn(window, 'prompt').mockReturnValue('15');
-    
     render(
       <BrowserRouter>
         <MyListingsPage />
@@ -29,7 +42,20 @@ describe('MyListingsPage Actions', () => {
     fireEvent.click(editBtn);
 
     await waitFor(() => {
-      expect(screen.getByText(/Bike - €15/)).toBeInTheDocument();
+      const item = screen.getByText(/Bike - €15/);
+      expect(item).not.toBeNull();
     });
+  });
+
+  it('renders listings from API', async () => {
+    render(
+      <BrowserRouter>
+        <MyListingsPage />
+      </BrowserRouter>
+    );
+    const item = await screen.findByText(/Bike/);
+    expect(item).not.toBeNull();
+    const price = screen.getByText(/€10/);
+    expect(price).not.toBeNull();
   });
 });
