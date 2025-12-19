@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 
 const LoginPage = () => {
     const [email, setEmail] = useState('');
+    const [error, setError] = useState('');
     const { login } = useAuth();
     const navigate = useNavigate();
 
@@ -15,14 +16,15 @@ const LoginPage = () => {
 
     const handleLogin = (e) => {
         e.preventDefault();
+        setError('');
         const foundUser = TEST_USERS.find(u => u.email === email);
-        
+
         if (foundUser) {
             login(foundUser);
             // Admins go to dashboard, Users go to home
             navigate(foundUser.role === 'ADMIN' ? '/owner-dashboard' : '/');
         } else {
-            alert("User not found! Try 'user@test.com' or 'admin@test.com'");
+            setError("User not found! Try 'user@test.com' or 'admin@test.com'");
         }
     };
 
@@ -38,38 +40,47 @@ const LoginPage = () => {
                     <div className="card shadow-sm border-0">
                         <div className="card-body p-4">
                             <h3 className="text-center mb-4 fw-bold">Sign In</h3>
-                            
+
+                            {error && (
+                                <div className="alert alert-danger" role="alert" data-testid="login-error">
+                                    {error}
+                                </div>
+                            )}
+
                             <form onSubmit={handleLogin}>
                                 <div className="mb-3">
                                     <label className="form-label">Email</label>
-                                    <input 
-                                        type="email" 
-                                        className="form-control" 
+                                    <input
+                                        type="email"
+                                        className="form-control"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         placeholder="user@test.com"
+                                        data-testid="email-input"
                                     />
                                 </div>
                                 <div className="mb-3">
                                     <label className="form-label">Password</label>
-                                    <input type="password" className="form-control" placeholder="******" />
+                                    <input type="password" className="form-control" placeholder="******" data-testid="password-input" />
                                 </div>
-                                <button type="submit" className="btn btn-primary w-100 mb-3">Login</button>
+                                <button type="submit" className="btn btn-primary w-100 mb-3" data-testid="login-button">Login</button>
                             </form>
 
                             <p className="small mt-3">Don't have an account? <Link to="/register">Register here</Link></p>
 
                             <div className="text-center mt-3 pt-3 border-top">
                                 <p className="text-muted small mb-2">Development Shortcuts</p>
-                                <button 
+                                <button
                                     className="btn btn-outline-info btn-sm me-2"
                                     onClick={() => quickLogin(TEST_USERS[0])}
+                                    data-testid="login-as-user"
                                 >
                                     Login as User
                                 </button>
-                                <button 
+                                <button
                                     className="btn btn-outline-danger btn-sm"
                                     onClick={() => quickLogin(TEST_USERS[1])}
+                                    data-testid="login-as-admin"
                                 >
                                     Login as Admin
                                 </button>
