@@ -1,15 +1,15 @@
 import { describe, it, vi, expect, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import LoginPage from './LoginPage';
+import AuthService from '../services/AuthService';
 
-const mockLogin = vi.fn();
+// 1. Mock Dependencies
+const mockLoginContext = vi.fn();
 const mockNavigate = vi.fn();
 
 vi.mock('../context/AuthContext', () => ({
-  useAuth: () => ({
-    login: mockLogin
-  })
+  useAuth: () => ({ login: mockLoginContext })
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -20,69 +20,80 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
+// Mock the real API service
+vi.mock('../services/AuthService', () => ({
+  default: {
+    login: vi.fn()
+  }
+}));
+
 describe('LoginPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it('updates input values when typing', () => {
-    render(
-      <MemoryRouter>
-        <LoginPage />
-      </MemoryRouter>
-    );
+    render(<MemoryRouter><LoginPage /></MemoryRouter>);
 
     const emailInput = screen.getByTestId('email-input');
+    const passwordInput = screen.getByTestId('password-input');
+
     fireEvent.change(emailInput, { target: { value: 'typed@test.com' } });
+    fireEvent.change(passwordInput, { target: { value: 'password123' } });
 
     expect(emailInput.value).toBe('typed@test.com');
+    expect(passwordInput.value).toBe('password123');
   });
 
-  it('shows error when user is not found', async () => {
-    render(
-      <MemoryRouter>
-        <LoginPage />
-      </MemoryRouter>
-    );
+  it('handles successful login', async () => {
+    // Arrange: Mock API response
+    const mockUser = { id: 1, email: 'user@test.com', role: 'USER' };
+    AuthService.login.mockResolvedValue(mockUser);
 
-    fireEvent.change(screen.getByTestId('email-input'), { target: { value: 'wrong@test.com' } });
-    fireEvent.click(screen.getByTestId('login-button'));
+    render(<MemoryRouter><LoginPage /></MemoryRouter>);
 
-    // FIX: Use findByTestId and standard textContent check
-    const errorAlert = await screen.findByTestId('login-error');
-    expect(errorAlert.textContent).toContain('User not found');
-    expect(mockLogin).not.toHaveBeenCalled();
-  });
-
-  it('logs in successfully as regular USER', () => {
-    render(
-      <MemoryRouter>
-        <LoginPage />
-      </MemoryRouter>
-    );
-
+    // Act
     fireEvent.change(screen.getByTestId('email-input'), { target: { value: 'user@test.com' } });
+    fireEvent.change(screen.getByTestId('password-input'), { target: { value: 'password123' } });
     fireEvent.click(screen.getByTestId('login-button'));
 
-    expect(mockLogin).toHaveBeenCalledWith(expect.objectContaining({ 
-      email: 'user@test.com',
-      role: 'USER' 
-    }));
-    expect(mockNavigate).toHaveBeenCalledWith('/');
+    // Assert
+    await waitFor(() => {
+      expect(AuthService.login).toHaveBeenCalledWith('user@test.com', 'password123');
+      expect(mockLoginContext).toHaveBeenCalledWith(mockUser);
+      expect(mockNavigate).toHaveBeenCalledWith('/');
+    });
   });
 
-  it('redirects ADMIN to owner dashboard', () => {
-    render(
-      <MemoryRouter>
-        <LoginPage />
-      </MemoryRouter>
-    );
+  it('handles login error (Invalid Credentials)', async () => {
+    // Arrange: Mock API failure
+    AuthService.login.mockRejectedValue(new Error('Invalid credentials'));
 
-    fireEvent.click(screen.getByTestId('login-as-admin'));
+    render(<MemoryRouter><LoginPage /></MemoryRouter>);
 
-    expect(mockLogin).toHaveBeenCalledWith(expect.objectContaining({ 
-      role: 'ADMIN' 
-    }));
-    expect(mockNavigate).toHaveBeenCalledWith('/owner-dashboard');
+    // Act
+    fireEvent.change(screen.getByTestId('email-input'), { target: { value: 'wrong@test.com' } });
+    fireEvent.change(screen.getByTestId('password-input'), { target: { value: 'wrongpass' } });
+    fireEvent.click(screen.getByTestId('login-button'));
+
+    // Assert
+    const errorAlert = await screen.findByTestId('login-error');
+    expect(errorAlert.textContent).toContain('Invalid email or password');
+    expect(mockLoginContext).not.toHaveBeenCalled();
+  });
+
+  it('redirects ADMIN to owner dashboard on success', async () => {
+    const mockAdmin = { id: 2, email: 'admin@test.com', role: 'ADMIN' };
+    AuthService.login.mockResolvedValue(mockAdmin);
+
+    render(<MemoryRouter><LoginPage /></MemoryRouter>);
+
+    fireEvent.change(screen.getByTestId('email-input'), { target: { value: 'admin@test.com' } });
+    fireEvent.change(screen.getByTestId('password-input'), { target: { value: 'adminpass' } });
+    fireEvent.click(screen.getByTestId('login-button'));
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/owner-dashboard');
+    });
   });
 });

@@ -2,19 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ItemService from '../services/ItemService';
 import BookingService from '../services/BookingService';
+import { useAuth } from '../context/AuthContext'; // Import Auth
 
 const ItemDetailsPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { user } = useAuth(); // Get Real User
     const [item, setItem] = useState(null);
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
 
-    // HARDCODED ID for testing US3
-    const CURRENT_USER_ID = 1; 
-
     useEffect(() => {
-        // Fetch item details (US2)
         ItemService.getAllItems().then(items => {
             const found = items.find(i => i.id === parseInt(id));
             setItem(found);
@@ -22,10 +20,16 @@ const ItemDetailsPage = () => {
     }, [id]);
 
     const handleRequest = async () => {
+        if (!user) {
+            alert("Please login to book items.");
+            navigate('/login');
+            return;
+        }
+
         try {
             const bookingDTO = {
-                renterId: CURRENT_USER_ID,
-                itemIds: [item.id], // Group booking ready (US10)
+                renterId: user.id, // FIX: Use real ID from context
+                itemIds: [item.id],
                 startDate: startDate,
                 endDate: endDate
             };
@@ -33,7 +37,7 @@ const ItemDetailsPage = () => {
             alert("Request sent! Waiting for owner approval.");
             navigate('/my-bookings');
         } catch {
-            alert("Error creating booking");
+            alert("Error creating booking. Check console.");
         }
     };
 
@@ -43,7 +47,7 @@ const ItemDetailsPage = () => {
         <div className="container mt-5">
             <div className="row">
                 <div className="col-md-6">
-                    <img src="https://via.placeholder.com/600x400" className="img-fluid rounded" alt={item.name} />
+                    <img src={item.imageUrl || "https://via.placeholder.com/600x400"} className="img-fluid rounded" alt={item.name} />
                 </div>
                 <div className="col-md-6">
                     <h2>{item.name}</h2>
