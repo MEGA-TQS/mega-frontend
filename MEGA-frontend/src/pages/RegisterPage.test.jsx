@@ -6,6 +6,8 @@ import AuthService from '../services/AuthService';
 
 const mockLoginContext = vi.fn();
 const mockNavigate = vi.fn();
+const TEST_PASSWORD = 'TestPassword123!';
+const WRONG_PASSWORD = 'WrongPassword456!';
 
 vi.mock('../context/AuthContext', () => ({
   useAuth: () => ({ login: mockLoginContext })
@@ -33,8 +35,8 @@ describe('RegisterPage', () => {
     // Fill fields
     fireEvent.change(screen.getByTestId('name-input'), { target: { value: 'Test User' } });
     fireEvent.change(screen.getByTestId('email-input'), { target: { value: 'test@example.com' } });
-    fireEvent.change(screen.getByTestId('password-input'), { target: { value: 'pass123' } });
-    fireEvent.change(screen.getByTestId('confirm-password-input'), { target: { value: 'pass999' } });
+    fireEvent.change(screen.getByTestId('password-input'), { target: { value: TEST_PASSWORD } });
+    fireEvent.change(screen.getByTestId('confirm-password-input'), { target: { value: WRONG_PASSWORD } });
     
     fireEvent.click(screen.getByTestId('register-button'));
 
@@ -54,8 +56,8 @@ describe('RegisterPage', () => {
     // Fill form correctly
     fireEvent.change(screen.getByTestId('name-input'), { target: { value: 'New User' } });
     fireEvent.change(screen.getByTestId('email-input'), { target: { value: 'new@test.com' } });
-    fireEvent.change(screen.getByTestId('password-input'), { target: { value: 'securePass' } });
-    fireEvent.change(screen.getByTestId('confirm-password-input'), { target: { value: 'securePass' } });
+    fireEvent.change(screen.getByTestId('password-input'), { target: { value: TEST_PASSWORD } });
+    fireEvent.change(screen.getByTestId('confirm-password-input'), { target: { value: TEST_PASSWORD } });
 
     fireEvent.click(screen.getByTestId('register-button'));
 
@@ -64,7 +66,7 @@ describe('RegisterPage', () => {
       expect(AuthService.register).toHaveBeenCalledWith({
         name: 'New User',
         email: 'new@test.com',
-        password: 'securePass',
+        password: TEST_PASSWORD,
         role: 'USER'
       });
       expect(mockLoginContext).toHaveBeenCalledWith(mockResponse);
@@ -87,8 +89,8 @@ describe('RegisterPage', () => {
 
     fireEvent.change(screen.getByTestId('name-input'), { target: { value: 'User' } });
     fireEvent.change(screen.getByTestId('email-input'), { target: { value: 'exists@test.com' } });
-    fireEvent.change(screen.getByTestId('password-input'), { target: { value: '123' } });
-    fireEvent.change(screen.getByTestId('confirm-password-input'), { target: { value: '123' } });
+    fireEvent.change(screen.getByTestId('password-input'), { target: { value: TEST_PASSWORD } });
+    fireEvent.change(screen.getByTestId('confirm-password-input'), { target: { value: TEST_PASSWORD } });
 
     fireEvent.click(screen.getByTestId('register-button'));
 
