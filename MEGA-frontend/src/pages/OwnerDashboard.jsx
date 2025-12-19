@@ -1,26 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import BookingService from '../services/BookingService';
+import { useAuth } from '../context/AuthContext';
 
 const OwnerDashboard = () => {
     const [requests, setRequests] = useState([]);
-
-    // HARDCODED OWNER ID for testing US4
-    const CURRENT_OWNER_ID = 5; 
+    const { user } = useAuth();
 
     const loadRequests = () => {
-        BookingService.getOwnerBookings(CURRENT_OWNER_ID)
-            .then(data => setRequests(data))
-            .catch(err => console.error(err));
+        if (user) {
+            // FIX: Use real ID
+            BookingService.getOwnerBookings(user.id) 
+                .then(data => setRequests(data))
+                .catch(err => console.error(err));
+        }
     };
 
     useEffect(() => {
         loadRequests();
-    }, []);
+    }, [user]);
 
     const handleStatus = (bookingId, isApproved) => {
-        BookingService.updateStatus(bookingId, CURRENT_OWNER_ID, isApproved)
+        BookingService.updateStatus(bookingId, user.id, isApproved)
             .then(() => {
-                loadRequests(); // Refresh list
+                loadRequests(); 
             });
     };
 

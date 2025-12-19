@@ -8,11 +8,11 @@ const BrowsePage = () => {
     const [items, setItems] = useState([]);
     
     const [filters, setFilters] = useState({
-        keyword: searchParams.get('keyword') || '',
-        location: searchParams.get('location') || '',
-        category: searchParams.get('category') || '',
-        minPrice: '',
-        maxPrice: ''
+        keyword: searchParams.get('keyword') || null,
+        location: searchParams.get('location') || null,
+        category: searchParams.get('category') || null,
+        minPrice: searchParams.get('minPrice') || null,
+        maxPrice: searchParams.get('maxPrice') || null
     });
 
     useEffect(() => {
