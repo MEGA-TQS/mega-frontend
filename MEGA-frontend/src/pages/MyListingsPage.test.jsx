@@ -6,23 +6,30 @@ import MyListingsPage from './MyListingsPage'
 // Mock services and context
 vi.mock('../services/ItemService', () => ({
   default: {
-    getMyListings: vi.fn(() => Promise.resolve([])),
-    deleteItem: vi.fn(() => Promise.resolve({}))
+    getMyListings: vi.fn(() => Promise.resolve([
+      { id: 1, name: 'Bike', pricePerDay: 10, active: true }
+    ])),
+    deleteItem: vi.fn(() => Promise.resolve({})),
+    updatePrice: vi.fn(() => Promise.resolve({ id: 1, pricePerDay: 15 }))
   }
-}))
+}));
 
-vi.mock('../context/AuthContext', () => ({
-  useAuth: () => ({
-    user: { id: 1, name: 'Test User' }
-  })
-}))
-
-describe('MyListingsPage', () => {
-  it('renders without crashing', () => {
+describe('MyListingsPage Actions', () => {
+  it('updates price locally when Edit Price is clicked', async () => {
+    // Mock window.prompt
+    vi.spyOn(window, 'prompt').mockReturnValue('15');
+    
     render(
       <BrowserRouter>
         <MyListingsPage />
       </BrowserRouter>
-    )
-  })
-})
+    );
+
+    const editBtn = await screen.findByText('Edit Price');
+    fireEvent.click(editBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Bike - €15/)).toBeInTheDocument();
+    });
+  });
+});

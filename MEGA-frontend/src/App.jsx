@@ -10,6 +10,7 @@ import PaymentPage from './pages/PaymentPage';
 import BrowsePage from './pages/BrowsePage';
 import RegisterPage from './pages/RegisterPage';
 import Navbar from './components/Navbar';
+import IncomingBookingsPage from './pages/IncomingBookingsPage';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 function App() {
@@ -28,6 +29,7 @@ function App() {
         <Route path="/items/new" element={<ItemFormPage />} />
         <Route path="/items/edit/:id" element={<ItemFormPage />} />
         <Route path="/payment/:bookingId" element={<PaymentPage />} />
+        <Route path="/incoming-bookings" element={<IncomingBookingsPage />} />
       </Routes>
     </Router>
   );

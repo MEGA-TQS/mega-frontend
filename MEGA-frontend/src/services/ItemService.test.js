@@ -172,4 +172,38 @@ describe('ItemService', () => {
       expect(mockApi.get).toHaveBeenCalledWith('/items/owner/123');
     });
   });
+
+  describe('updatePrice', () => {
+    it('should send price in JSON body and ownerId in params', async () => {
+      mockApi.patch.mockResolvedValue({ data: { id: 1, pricePerDay: 99 } });
+
+      const result = await ItemService.updatePrice(1, 99, 123);
+
+      // Verify ownerId is in URL and price is in BODY
+      expect(mockApi.patch).toHaveBeenCalledWith(
+        '/items/1/price?ownerId=123',
+        { newPrice: 99 } // Matches ItemPriceUpdateDTO
+      );
+      expect(result.pricePerDay).toBe(99);
+    });
+  });
+
+  describe('deleteItem', () => {
+    it('should call DELETE endpoint with correct id', async () => {
+      mockApi.delete.mockResolvedValue({});
+      await ItemService.deleteItem(5);
+      expect(mockApi.delete).toHaveBeenCalledWith('/items/5');
+    });
+  });
+
+  describe('addReview', () => {
+    it('should send review data in JSON body', async () => {
+      const reviewData = { reviewerId: 1, rating: 5, comment: 'Great!' };
+      mockApi.post.mockResolvedValue({ data: reviewData });
+
+      await ItemService.addReview(1, reviewData);
+
+      expect(mockApi.post).toHaveBeenCalledWith('/items/1/reviews', reviewData);
+    });
+  });
 });

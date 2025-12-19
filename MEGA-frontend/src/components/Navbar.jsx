@@ -12,47 +12,58 @@ const Navbar = () => {
     };
 
     return (
-        <nav className="navbar navbar-expand-lg navbar-custom sticky-top">
+        <nav className="navbar navbar-expand-lg navbar-light bg-light sticky-top shadow-sm">
             <div className="container">
-                {/* --- UPDATED LOGO AREA --- */}
+                {/* --- YOUR NEW LOGO AREA --- */}
                 <Link className="navbar-brand d-flex align-items-center" to="/">
                     <img 
-                        src="/MEGA_completely_original_logo.png" // Use the path to your saved file
+                        src="/MEGA_completely_original_logo.png" 
                         alt="MEGA Logo"
-                        style={{ height: '35px', marginRight: '5px' }} // Custom sizing
+                        style={{ height: '35px', marginRight: '5px' }} 
                     />
                      <img 
-                        src="/Title_image.png" // Use the path to your saved file
-                        alt="MEGA Logo"
-                        style={{ height: '32px', marginRight: '2px' }} // Custom sizing
+                        src="/Title_image.png" 
+                        alt="MEGA Title"
+                        style={{ height: '32px', marginRight: '2px' }} 
                     />
                 </Link>
                 {/* ------------------------- */}
                 
-                <div className="d-flex align-items-center gap-3">
-                    {user ? (
-                        <>
-                            {/* ... existing links (My Listings, My Bookings, Dashboard) ... */}
+                <div className="collapse navbar-collapse" id="navbarNav">
+                    <ul className="navbar-nav ms-auto align-items-center gap-2">
+                        {user ? (
+                            <>
+                                {/* Renter Link */}
+                                <li className="nav-item">
+                                    <Link to="/my-bookings" className="btn btn-sm btn-outline-primary border-0">My Bookings</Link>
+                                </li>
 
-                            {user.role === 'USER' && (
-                                <>
-                                    <Link to="/my-listings" className="btn btn-outline-dark btn-sm">My Listings</Link>
-                                    <Link to="/my-bookings" className="btn btn-light btn-sm">My Bookings</Link>
-                                </>
-                            )}
-                            
-                            {user.role === 'ADMIN' && (
-                                <Link to="/owner-dashboard" className="btn btn-warning btn-sm text-white">Admin Panel</Link>
-                            )}
+                                {/* Owner Links */}
+                                <li className="nav-item">
+                                    <Link to="/items/new" className="btn btn-sm btn-outline-success">List Item</Link>
+                                </li>
+                                <li className="nav-item">
+                                    <Link to="/my-listings" className="btn btn-sm btn-outline-dark border-0">My Listings</Link>
+                                </li>
+                                <li className="nav-item">
+                                    <Link to="/incoming-bookings" className="btn btn-sm btn-outline-warning border-0 position-relative">
+                                        Requests
+                                    </Link>
+                                </li>
 
-                            <span className="text-muted d-none d-md-block ms-2">
-                                Hi, {user.name.split(' ')[0]}
-                            </span>
-                            <button onClick={handleLogout} className="btn btn-outline-danger btn-sm">Logout</button>
-                        </>
-                    ) : (
-                        <Link to="/login" className="btn btn-primary btn-sm px-4">Login</Link>
-                    )}
+                                <li className="nav-item ms-2">
+                                    <span className="text-muted small me-2">
+                                        Hi, {user.name ? user.name.split(' ')[0] : 'User'}
+                                    </span>
+                                    <button onClick={handleLogout} className="btn btn-danger btn-sm">Logout</button>
+                                </li>
+                            </>
+                        ) : (
+                            <li className="nav-item">
+                                <Link to="/login" className="btn btn-primary btn-sm px-4">Login</Link>
+                            </li>
+                        )}
+                    </ul>
                 </div>
             </div>
         </nav>
