@@ -16,10 +16,13 @@ class CustomWorld extends World {
 Before(async function () {
     const headless = this.parameters.headless !== false;
     this.browser = await chromium.launch({ headless });
-    this.page = await this.browser.newPage();
-    // Set navigation timeout
+    
+    // Set a wide viewport to ensure the Navbar links aren't hidden
+    this.page = await this.browser.newPage({ 
+        viewport: { width: 1280, height: 720 } 
+    });
+    
     this.page.setDefaultTimeout(30000);
-    this.page.setDefaultNavigationTimeout(30000);
 });
 
 After(async function () {

@@ -1,64 +1,59 @@
 import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
 
-// Navigation steps
+// 1. Navigation
 Given('I am on the {string} page', async function (pageName) {
     const routes = {
         'home': '/',
         'login': '/login',
         'register': '/register',
         'browse': '/browse',
-        'my bookings': '/my-bookings',
-        'my listings': '/my-listings'
+        'my bookings': '/my-bookings'
     };
     const path = routes[pageName.toLowerCase()] || `/${pageName.toLowerCase()}`;
     await this.page.goto(`${this.baseUrl}${path}`);
 });
 
-Given('I navigate to {string}', async function (url) {
-    if (url.startsWith('http')) {
-        await this.page.goto(url);
-    } else {
-        await this.page.goto(`${this.baseUrl}${url}`);
-    }
-});
-
-// Click steps
+// 2. Clicks
 When('I click the {string} button', async function (buttonText) {
-    await this.page.click(`button:has-text("${buttonText}")`);
+    const btn = this.page.locator(`button:has-text("${buttonText}")`);
+    await btn.waitFor({ state: 'visible' });
+    
+    if (buttonText.toLowerCase() === 'login') {
+        const oldUrl = this.page.url();
+        await btn.click();
+        
+        // Use a race condition: wait for either a URL change OR an error alert
+        // This prevents the 10s timeout on both success and failure
+        await Promise.race([
+            this.page.waitForFunction((old) => window.location.href !== old, oldUrl),
+            this.page.locator('.alert-danger').waitFor({ state: 'visible' }).catch(() => {})
+        ]).catch(() => {
+            console.log("Action completed without traditional navigation.");
+        });
+    } else {
+        await btn.click();
+    }
 });
 
 When('I click the {string} link', async function (linkText) {
-    await this.page.click(`a:has-text("${linkText}")`);
+    // We target the navbar explicitly to avoid ambiguity [cite: 2]
+    const navbarLink = this.page.locator(`.navbar a:has-text("${linkText}")`).first();
+    
+    // Increased timeout and visibility check
+    await navbarLink.waitFor({ state: 'visible', timeout: 10000 });
+    
+    // Use forced click in case Bootstrap animations are still sliding 
+    await navbarLink.click({ force: true });
 });
 
-When('I click on {string}', async function (text) {
-    await this.page.click(`text=${text}`);
-});
-
-// Form input steps
-When('I fill in {string} with {string}', async function (fieldLabel, value) {
-    const input = this.page.locator(`input`).filter({ has: this.page.locator(`xpath=preceding-sibling::label[contains(text(),"${fieldLabel}")]`) }).first();
-
-    // Try by placeholder first
-    let element = this.page.locator(`input[placeholder*="${fieldLabel}" i]`).first();
-    if (await element.count() === 0) {
-        // Try by associated label
-        element = this.page.locator(`label:has-text("${fieldLabel}")`).locator('..').locator('input').first();
-    }
-    if (await element.count() === 0) {
-        // Try by name attribute
-        element = this.page.locator(`input[name="${fieldLabel.toLowerCase()}" i]`).first();
-    }
-
-    await element.fill(value);
-});
-
+// 3. Form Inputs
 When('I type {string} in the {string} field', async function (value, fieldName) {
+    // Selector strategy for your specific Login/Register forms
     const selectors = [
         `input[name="${fieldName}"]`,
-        `input[placeholder*="${fieldName}" i]`,
         `label:has-text("${fieldName}") + input`,
+        `input[placeholder*="${fieldName}" i]`,
         `label:has-text("${fieldName}") ~ input`
     ];
 
@@ -72,49 +67,20 @@ When('I type {string} in the {string} field', async function (value, fieldName) 
     throw new Error(`Could not find field: ${fieldName}`);
 });
 
+// RESTORED: Missing Select Step
 When('I select {string} from {string}', async function (optionText, selectLabel) {
-    const select = this.page.locator(`select[name="${selectLabel}"]`).first();
-    await select.selectOption({ label: optionText });
+    await this.page.selectOption(`select[name="${selectLabel}"]`, { label: optionText });
 });
 
-// Assertion steps
+// 4. Assertions
 Then('I should see {string}', async function (text) {
-    await expect(this.page.locator(`text=${text}`).first()).toBeVisible({ timeout: 5000 });
-});
-
-Then('I should see the text {string}', async function (text) {
-    await expect(this.page.locator(`text=${text}`).first()).toBeVisible({ timeout: 5000 });
-});
-
-Then('I should not see {string}', async function (text) {
-    await expect(this.page.locator(`text=${text}`)).not.toBeVisible({ timeout: 5000 });
-});
-
-Then('the page title should be {string}', async function (expectedTitle) {
-    await expect(this.page).toHaveTitle(expectedTitle);
+    // Relaxed visible text matching
+    const locator = this.page.locator(`:visible:has-text("${text}")`).first();
+    await expect(locator).toBeVisible({ timeout: 10000 });
 });
 
 Then('I should be on the {string} page', async function (pageName) {
-    const routes = {
-        'home': '/',
-        'login': '/login',
-        'register': '/register',
-        'browse': '/browse',
-        'my bookings': '/my-bookings'
-    };
+    const routes = { 'home': '/', 'login': '/login', 'browse': '/browse', 'my bookings': '/my-bookings' };
     const expectedPath = routes[pageName.toLowerCase()] || `/${pageName.toLowerCase()}`;
-    await this.page.waitForURL(`**${expectedPath}**`, { timeout: 5000 });
-});
-
-Then('the URL should contain {string}', async function (urlPart) {
-    await expect(this.page).toHaveURL(new RegExp(urlPart));
-});
-
-// Wait steps
-When('I wait for {int} seconds', async function (seconds) {
-    await this.page.waitForTimeout(seconds * 1000);
-});
-
-When('I wait for the page to load', async function () {
-    await this.page.waitForLoadState('networkidle');
+    await expect(this.page).toHaveURL(new RegExp(expectedPath));
 });

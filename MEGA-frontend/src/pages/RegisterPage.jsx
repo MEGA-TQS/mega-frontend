@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import AuthService from '../services/AuthService';
 
 const RegisterPage = () => {
     const [formData, setFormData] = useState({
@@ -8,7 +9,7 @@ const RegisterPage = () => {
         email: '',
         password: '',
         confirmPassword: '',
-        role: 'USER', // Default role for new sign-ups
+        role: 'USER', 
     });
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
@@ -17,40 +18,46 @@ const RegisterPage = () => {
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
-        setError(''); // Clear error when user types
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         setSuccess('');
 
         if (formData.password !== formData.confirmPassword) {
             setError("Passwords do not match!");
-            return; // Stop the function from proceeding
+            return;
         }
 
-        // --- SIMULATION LOGIC ---
+        try {
+            // 1. Prepare DTO (excluding confirmPassword)
+            const payload = {
+                name: formData.name,
+                email: formData.email,
+                password: formData.password,
+                role: formData.role
+            };
 
-        // In a real application, you would send a POST request here:
-        // await api.post('/register', formData);
+            // 2. Call Backend
+            const data = await AuthService.register(payload);
 
-        // For the MVP, we simulate successful registration and immediate login
-        const newUser = {
-            // NOTE: Use a unique ID (based on the current timestamp for simplicity)
-            id: Date.now(),
-            name: formData.name,
-            email: formData.email,
-            role: formData.role,
-        };
+            // 3. Login Immediately
+            login(data);
+            setSuccess(`Registration successful! Welcome ${data.name}.`);
 
-        login(newUser);
-        setSuccess(`Registration successful! Logged in as ${newUser.name} (${newUser.role})`);
+            // 4. Redirect
+            setTimeout(() => {
+                navigate(data.role === 'ADMIN' ? '/owner-dashboard' : '/');
+            }, 1000);
 
-        // Redirect based on role after a short delay
-        setTimeout(() => {
-            navigate(newUser.role === 'ADMIN' ? '/owner-dashboard' : '/');
-        }, 1000);
+        } catch (err) {
+            if (err.response && err.response.status === 409) {
+                setError("Email already exists.");
+            } else {
+                setError("Registration failed. Please try again.");
+            }
+        }
     };
 
     return (
@@ -61,17 +68,8 @@ const RegisterPage = () => {
                         <div className="card-body p-4">
                             <h3 className="text-center mb-4 fw-bold">Create Account</h3>
 
-                            {error && (
-                                <div className="alert alert-danger" role="alert" data-testid="register-error">
-                                    {error}
-                                </div>
-                            )}
-
-                            {success && (
-                                <div className="alert alert-success" role="alert" data-testid="register-success">
-                                    {success}
-                                </div>
-                            )}
+                            {error && <div className="alert alert-danger" data-testid="register-error">{error}</div>}
+                            {success && <div className="alert alert-success" data-testid="register-success">{success}</div>}
 
                             <form onSubmit={handleSubmit}>
                                 <div className="mb-3">
@@ -123,9 +121,8 @@ const RegisterPage = () => {
                                     />
                                 </div>
 
-                                {/* Development Tool: Role Selector */}
                                 <div className="mb-3">
-                                    <label className="form-label">Account Type (for Testing)</label>
+                                    <label className="form-label">Account Type</label>
                                     <select
                                         className="form-select"
                                         name="role"
@@ -140,7 +137,6 @@ const RegisterPage = () => {
 
                                 <button type="submit" className="btn btn-success w-100 mb-3" data-testid="register-button">Register</button>
                             </form>
-
                             <div className="text-center mt-3 pt-3 border-top">
                                 <p className="small">Already have an account? <Link to="/login">Login here</Link></p>
                             </div>

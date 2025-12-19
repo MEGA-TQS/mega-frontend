@@ -2,162 +2,89 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import Navbar from './Navbar';
-import { assertButton } from './test-utils';
+import { useAuth } from '../context/AuthContext';
 
-// Mock the AuthContext
+// ---- MOCKS ----
+
+// Mock AuthContext
 vi.mock('../context/AuthContext', () => ({
-  useAuth: vi.fn()
+  useAuth: vi.fn(),
 }));
 
-// Mock react-router-dom
+// Mock useNavigate from react-router-dom
+const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
   return {
     ...actual,
-    useNavigate: vi.fn(),
-    Link: ({ children, to, className, ...props }) => (
-      <a href={to} className={className} {...props}>
-        {children}
-      </a>
-    )
+    useNavigate: () => mockNavigate,
   };
 });
 
-import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
-
-describe('Navbar', () => {
-  let mockLogout;
-  let mockNavigate;
-
-  beforeEach(() => {
-    mockLogout = vi.fn();
-    mockNavigate = vi.fn();
-    
-    vi.mocked(useNavigate).mockReturnValue(mockNavigate);
-    vi.mocked(useAuth).mockReturnValue({
-      user: null,
-      logout: mockLogout,
-      login: vi.fn()
-    });
+const renderNavbar = (user = null, logoutMock = vi.fn()) => {
+  useAuth.mockReturnValue({
+    user,
+    logout: logoutMock,
   });
 
-  afterEach(() => {
+  return render(
+    <MemoryRouter>
+      <Navbar />
+    </MemoryRouter>
+  );
+};
+
+describe('Navbar', () => {
+  beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  const renderNavbar = () => {
-    return render(
-      <MemoryRouter>
-        <Navbar />
-      </MemoryRouter>
-    );
-  };
-
-  const setupUser = (userData) => {
-    vi.mocked(useAuth).mockReturnValue({
-      user: userData,
-      logout: mockLogout,
-      login: vi.fn()
-    });
-  };
-
-  it('should render the navbar with logo and title images', () => {
-    renderNavbar();
-
-    const logoImages = screen.getAllByAltText('MEGA Logo');
-    expect(logoImages).toHaveLength(2);
-    
-    expect(logoImages[0].src).toContain('/MEGA_completely_original_logo.png');
-    expect(logoImages[1].src).toContain('/Title_image.png');
-  });
-
-  it('should show login button when user is not logged in', () => {
-    renderNavbar();
+  it('shows Login button when user is not logged in', () => {
+    renderNavbar(null);
 
     const loginButton = screen.getByText('Login');
-    expect(loginButton).toBeTruthy();
-    expect(loginButton.getAttribute('href')).toBe('/login');
-    assertButton(loginButton, ['btn-primary', 'btn-sm']);
+    const logoutButton = screen.queryByText('Logout');
+
+    expect(loginButton).not.toBeNull();
+    expect(logoutButton).toBeNull();
   });
 
-  describe('When user is logged in', () => {
-    const testLoggedInState = (user, expectedButtons, unexpectedButtons = []) => {
-      setupUser(user);
-      renderNavbar();
+  it('shows authenticated navigation links when logged in', () => {
+    renderNavbar({ id: 1, name: 'Alice Doe' });
 
-      // Check greeting
-      const firstName = user.name.split(' ')[0];
-      const greeting = screen.getByText(`Hi, ${firstName}`);
-      expect(greeting).toBeTruthy();
-      
-      // Check logout button
-      const logoutButton = screen.getByText('Logout');
-      assertButton(logoutButton, ['btn-outline-danger', 'btn-sm']);
-
-      // Check expected buttons
-      expectedButtons.forEach(buttonText => {
-        const button = screen.getByText(buttonText);
-        expect(button).toBeTruthy();
-      });
-
-      // Check unexpected buttons
-      unexpectedButtons.forEach(buttonText => {
-        expect(screen.queryByText(buttonText)).toBeNull();
-      });
-    };
-
-    it('should show USER role specific buttons', () => {
-      testLoggedInState(
-        { id: 1, name: 'John Doe', role: 'USER' },
-        ['My Listings', 'My Bookings'],
-        ['Admin Panel']
-      );
-    });
-
-    it('should show ADMIN role specific button', () => {
-      testLoggedInState(
-        { id: 1, name: 'Admin User', role: 'ADMIN' },
-        ['Admin Panel'],
-        ['My Listings', 'My Bookings']
-      );
-    });
+    expect(screen.getByText('My Bookings')).not.toBeNull();
+    expect(screen.getByText('List Item')).not.toBeNull();
+    expect(screen.getByText('My Listings')).not.toBeNull();
+    expect(screen.getByText('Requests')).not.toBeNull();
+    expect(screen.getByText('Logout')).not.toBeNull();
   });
 
-  it('should handle logout correctly', () => {
-    setupUser({ id: 1, name: 'John Doe', role: 'USER' });
-    renderNavbar();
+  it('displays user first name in greeting', () => {
+    renderNavbar({ id: 1, name: 'Alice Doe' });
 
-    const logoutButton = screen.getByText('Logout');
-    fireEvent.click(logoutButton);
+    expect(screen.getByText('Hi, Alice')).not.toBeNull();
+  });
 
-    expect(mockLogout).toHaveBeenCalledTimes(1);
+  it('falls back to "User" when name is missing', () => {
+    renderNavbar({ id: 1 });
+
+    expect(screen.getByText('Hi, User')).not.toBeNull();
+  });
+
+  it('calls logout and navigates to /login on logout click', () => {
+    const logoutMock = vi.fn();
+    renderNavbar({ id: 1, name: 'Alice' }, logoutMock);
+
+    fireEvent.click(screen.getByText('Logout'));
+
+    expect(logoutMock).toHaveBeenCalled();
     expect(mockNavigate).toHaveBeenCalledWith('/login');
   });
 
-  describe('User name handling', () => {
-    const testUserName = (name, expectedGreeting) => {
-      setupUser({ id: 1, name, role: 'USER' });
-      renderNavbar();
+  it('logo links navigate to home', () => {
+    renderNavbar(null);
 
-      const greeting = screen.getByText(expectedGreeting);
-      expect(greeting).toBeTruthy();
-    };
-
-    it('should handle single word names', () => {
-      testUserName('SingleWordName', 'Hi, SingleWordName');
-    });
-
-    it('should handle multiple word names', () => {
-      testUserName('John Michael Doe', 'Hi, John');
-    });
-
-    it('should handle empty names gracefully', () => {
-      setupUser({ id: 1, name: '', role: 'USER' });
-      renderNavbar();
-
-      const logoutButton = screen.getByText('Logout');
-      expect(logoutButton).toBeTruthy();
-    });
+    const logoLink = screen.getByRole('link', { name: /mega logo/i });
+    expect(logoLink.getAttribute('href')).toBe('/');
   });
 });

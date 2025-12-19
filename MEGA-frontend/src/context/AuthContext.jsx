@@ -3,21 +3,29 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-    // Check localStorage on load so login persists if you refresh the page
-    const [user, setUser] = useState(() => {
-        const savedUser = localStorage.getItem('user');
-        return savedUser ? JSON.parse(savedUser) : null;
-    });
+    const [user, setUser] = useState(null);
 
     const login = (userData) => {
-        // userData example: { id: 1, name: "Alice", role: "RENTER" }
-        setUser(userData);
-        localStorage.setItem('user', JSON.stringify(userData));
+        // 1. Standardize ID
+        const userToSave = {
+            ...userData,
+            id: userData.userId || userData.id 
+        };
+
+        // 2. Save User State
+        setUser(userToSave);
+        localStorage.setItem('user', JSON.stringify(userToSave));
+
+        // 3. Save Token for axiosConfig
+        if (userData.token) {
+            localStorage.setItem('token', userData.token);
+        }
     };
 
     const logout = () => {
         setUser(null);
         localStorage.removeItem('user');
+        localStorage.removeItem('token');
     };
 
     return (

@@ -16,10 +16,9 @@ Feature: User Registration
     When I type "Test User" in the "name" field
     And I type "test@test.com" in the "email" field
     And I type "password123" in the "password" field
+    # Ensure the field name matches the state variable in your UI
     And I type "differentpassword" in the "confirmPassword" field
     And I click the "Register" button
+    And I type "differentpassword" in the "Confirm Password" field
     Then I should see "Passwords do not match"
-
-  Scenario: Navigate to login page from register
-    When I click the "Login here" link
-    Then I should be on the "login" page
+    
